@@ -15,8 +15,14 @@ const xml2js = require("xml2js");
 // Handling command-line input/output
 const readline = require("readline");
 // Loading environment variables from .env file
+
+const openai = require("openai");
+
 require("dotenv").config();
 
+const client = new openai({
+  apiKey: process.env.OPENAI_API_KEY
+})
 // Directory where paper information will be stored
 const PAPER_DIR = "papers";
 
@@ -38,14 +44,10 @@ async function searchPapers(topic, maxResults = 5) {
   // Step 2: Make the HTTP request to arXiv API
   const response = await axios.get(apiUrl);
   const xml = response.data;
-  console.log(xml);
-  console.log("--------------------------------------------------");
 
   // Step 3: Parse the XML response into a JavaScript object
   const parser = new xml2js.Parser();
   const result = await parser.parseStringPromise(xml);
-  console.log(result);
-  console.log("--------------------------------------------------");
 
   // Step 4: Extract the paper entries from the parsed result
   const entries = result.feed.entry || [];
@@ -121,9 +123,51 @@ function extractInfo(paperId) {
 // ---------------------- TOOL MANAGEMENT ----------------------
 
 /**
+ * Schema of Available tools
+ */
+
+const tools = [
+  {
+      "type": "function",
+      "name": "search_papers",
+      "description": "Search for papers on arXiv based on a topic and store their information.",
+      "parameters": {
+          "type": "object",
+          "properties": {
+              "topic": {
+                  "type": "string",
+                  "description": "The topic to search for"
+              }, 
+              "max_results": {
+                  "type": "integer",
+                  "description": "Maximum number of results to retrieve",
+                  "default": 5
+              }
+          },
+          "required": ["topic"]
+      }
+  },
+  {
+      "type": "function",
+      "name": "extract_info",
+      "description": "Search for information about a specific paper across all topic directories.",
+      "parameters": {
+          "type": "object",
+          "properties": {
+              "paper_id": {
+                  "type": "string",
+                  "description": "The ID of the paper to look for"
+              }
+          },
+          "required": ["paper_id"]
+      }
+  }
+]
+
+/**
  * Map of available tools/functions that can be executed by the chatbot
  */
-const tools = {
+const mapping_tool_function = {
   search_papers: searchPapers,
   extract_info: extractInfo,
 };
@@ -137,10 +181,10 @@ const tools = {
  */
 async function executeTool(toolName, toolArgs) {
   // Check if the requested tool exists
-  if (!tools[toolName]) return "Tool not found.";
+  if (!mapping_tool_function[toolName]) return "Tool not found.";
   
   // Execute the tool with the provided arguments
-  const result = await tools[toolName](...Object.values(toolArgs));
+  const result = await mapping_tool_function[toolName](...Object.values(toolArgs));
   
   // Convert object results to JSON strings for display
   return typeof result === "object" ? JSON.stringify(result, null, 2) : result;
@@ -156,6 +200,8 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
+const inputs = [];
+
 /**
  * Prompts the user for input and processes their query
  */
@@ -163,37 +209,39 @@ function promptInput() {
   rl.question("\nQuery: ", async (query) => {
     // Exit the application if the user types "quit"
     if (query.toLowerCase() === "quit") return rl.close();
+    inputs.push({ role: "user", content: query });
 
-    // Handle paper search queries
-    if (query.includes("Search for")) {
-      // Use regex to extract the number of papers and the topic
-      // Format: "Search for X papers on "TOPIC""
-      const match = query.match(/Search for (\d+) papers on \"(.+)\"/);
-      if (match) {
-        // Execute the search_papers tool with extracted parameters
-        const result = await executeTool("search_papers", {
-          topic: match[2],
-          maxResults: parseInt(match[1], 10),
-        });
-        console.log("\n", result);
-      }
-    } 
-    // Handle paper info queries
-    else if (query.includes("Info on")) {
-      // Use regex to extract the paper ID
-      // Format: "Info on paper PAPER_ID"
-      const match = query.match(/Info on paper ([^\s]+)/);
-      if (match) {
-        // Execute the extract_info tool with the paper ID
-        const result = await executeTool("extract_info", { paperId: match[1] });
-        console.log("\n", result);
-      }
-    } 
-    // Handle unrecognized queries
-    else {
-      console.log("Sorry, I didn't understand that command.");
+    const response = await client.responses.create({
+      model: "gpt-4.1",
+      input: inputs,
+      tools,
+    }); 
+
+    if(response.output_text){
+      console.log(response.output_text);
     }
+    else if(response.output[0]){
+      const tool_call = response.output[0];
+      const args = JSON.parse(tool_call.arguments);
+      const toolName = tool_call.name;
+      const result = await executeTool(toolName, args);
 
+      inputs.push(tool_call);
+      inputs.push({ 
+        type: 'function_call_output',
+        call_id: tool_call.call_id,
+        output: result.toString()
+      });
+
+      const response2 = await client.responses.create({
+        model: "gpt-4.1",
+        input: inputs,
+        tools,
+        store: true,
+      });
+    
+      console.log(response2.output_text)
+    }
     // Continue prompting for input (recursive call)
     promptInput();
   });
