@@ -1,5 +1,5 @@
 // ========================================================================
-// TOOLS.JS - Contains all tool definitions and functions for the ArXiv Papers Chatbot
+// MCP_TOOLS.JS - Contains MCP server implementation for the ArXiv Papers Chatbot
 // ========================================================================
 
 // ---------------------- IMPORTING REQUIRED PACKAGES ----------------------
@@ -14,22 +14,33 @@ import { Parser } from 'xml2js';
 // For ES modules compatibility with __dirname
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-// Import PAPER_DIR from mcp_tools.js
-import { PAPER_DIR } from './mcp_tools.js';
+// MCP Server for extending functionality
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { z } from 'zod';
+
+// Initialize MCP server
+const server = new McpServer({
+  name: "Paper Research MCP",
+  version: "1.0.0"
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ---------------------- CORE FUNCTIONALITY ----------------------
+// Directory where paper information will be stored
+export const PAPER_DIR = "papers";
+
+// ---------------------- MCP TOOL IMPLEMENTATIONS ----------------------
 
 /**
  * Searches for academic papers on arXiv based on a given topic
  * 
  * @param {string} topic - The search topic/keywords
  * @param {number} maxResults - Maximum number of results to return (default: 5)
- * @returns {Array} - List of paper IDs found in the search
+ * @returns {Object} - Object containing list of paper IDs found in the search
  */
-async function searchPapers(topic, maxResults = 5) {
+server.tool("searchPapers", { topic: z.string(), maxResults: z.number() }, async ({topic, maxResults = 5}) => {
   // Step 1: Construct the arXiv API URL with the search parameters
   const apiUrl = `http://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(
     topic
@@ -80,19 +91,18 @@ async function searchPapers(topic, maxResults = 5) {
   // Step 7: Save the paper information to a JSON file
   const filePath = path.join(topicDir, "papers_info.json");
   fs.writeFileSync(filePath, JSON.stringify(papersInfo, null, 2));
-  console.log(`Results are saved in: ${filePath}`);
 
-  // Return just the paper IDs (can be used to look up details later)
-  return paperIds;
-}
+  // Return an object containing the paper IDs (fixed to ensure proper JSON serialization)
+  return { paperIds: paperIds };
+});
 
 /**
  * Retrieves detailed information about a specific paper by its ID
  * 
  * @param {string} paperId - The ID of the paper to look up
- * @returns {Object|string} - Paper details object or error message
+ * @returns {Object} - Object containing paper details or error message
  */
-function extractInfo(paperId) {
+server.tool("extractInfo", { paperId: z.string() }, ({ paperId }) => {
   // Step 1: Get all directories in the papers folder
   const dirs = fs.readdirSync(PAPER_DIR);
 
@@ -105,91 +115,15 @@ function extractInfo(paperId) {
       const data = JSON.parse(fs.readFileSync(filePath));
       // Check if this file contains information about our paper
       if (data[paperId]) {
-        // Return the paper information object
-        return data[paperId];
+        // Return the paper information as an object (not a string)
+        return { paper: data[paperId] };
       }
     }
   }
   // If paper not found, return an error message
-  return `There's no saved information related to paper ${paperId}.`;
-}
-  
-// ---------------------- TOOL DEFINITIONS ----------------------
+  return { error: `There's no saved information related to paper ${paperId}.` };
+});
 
-/**
- * Schema definition for OpenAI function calling
- * These schemas define the tools that the AI can use to interact with our application
- */
-const tools = [
-  {
-      "type": "function",
-      "name": "search_papers",
-      "description": "Search for papers on arXiv based on a topic and store their information.",
-      "parameters": {
-          "type": "object",
-          "properties": {
-              "topic": {
-                  "type": "string",
-                  "description": "The topic to search for"
-              }, 
-              "max_results": {
-                  "type": "integer",
-                  "description": "Maximum number of results to retrieve",
-                  "default": 5
-              }
-          },
-          "required": ["topic"]
-      }
-  },
-  {
-      "type": "function",
-      "name": "extract_info",
-      "description": "Search for information about a specific paper across all topic directories.",
-      "parameters": {
-          "type": "object",
-          "properties": {
-              "paper_id": {
-                  "type": "string",
-                  "description": "The ID of the paper to look for"
-              }
-          },
-          "required": ["paper_id"]
-      }
-  }
-];
-
-/**
- * Map of available tools/functions that can be executed by the chatbot
- * This maps the function names in the schema to the actual JavaScript functions
- */
-const toolFunctionMap = {
-  search_papers: searchPapers,
-  extract_info: extractInfo,
-};
-
-/**
- * Executes a tool/function with the provided arguments
- * 
- * @param {string} toolName - Name of the tool to execute
- * @param {object} toolArgs - Arguments to pass to the tool
- * @returns {string} - Result of the tool execution
- */
-async function executeTool(toolName, toolArgs) {
-  // Check if the requested tool exists
-  if (!toolFunctionMap[toolName]) return "Tool not found.";
-  
-  // Execute the tool with the provided arguments
-  const result = await toolFunctionMap[toolName](...Object.values(toolArgs));
-  
-  // Convert object results to JSON strings for display
-  return typeof result === "object" ? JSON.stringify(result, null, 2) : result;
-}
-
-// Export all necessary functions and objects
-export {
-  searchPapers,
-  extractInfo,
-  tools,
-  toolFunctionMap,
-  executeTool
-};
+// Initialize and connect the MCP server
+const transport = new StdioServerTransport();
+await server.connect(transport);

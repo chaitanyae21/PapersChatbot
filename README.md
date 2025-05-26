@@ -1,10 +1,10 @@
 # ArXiv Papers Chatbot
 
-A Node.js application that allows users to search and retrieve academic papers from the arXiv repository using their public API, enhanced with AI-powered natural language understanding.
+A Node.js application that allows users to search and retrieve academic papers from the arXiv repository using their public API, enhanced with AI-powered natural language understanding and Model Context Protocol (MCP) integration.
 
 ## Project Overview
 
-This application provides a command-line interface to search for academic papers on specific topics and retrieve detailed information about papers using their arXiv IDs. The application stores search results locally for quick access to previously searched papers and uses OpenAI's API to enable natural language interactions.
+This application provides a command-line interface to search for academic papers on specific topics and retrieve detailed information about papers using their arXiv IDs. The application stores search results locally for quick access to previously searched papers and uses OpenAI's API to enable natural language interactions. It also implements the Model Context Protocol (MCP) to extend AI capabilities.
 
 ## Features
 
@@ -14,6 +14,7 @@ This application provides a command-line interface to search for academic papers
 - **Local Storage**: Save search results locally for quick access
 - **Command-line Interface**: Simple text-based interface for interacting with the application
 - **Conversation Context**: The AI remembers previous interactions for more coherent conversations
+- **MCP Integration**: Extends AI capabilities through the Model Context Protocol
 
 ## Installation
 
@@ -30,6 +31,10 @@ This application provides a command-line interface to search for academic papers
    ```
    node index.js
    ```
+5. To use MCP functionality, run the MCP server in a separate terminal:
+   ```
+   node mcp_tools.js
+   ```
 
 ## Dependencies
 
@@ -37,6 +42,8 @@ This application provides a command-line interface to search for academic papers
 - **xml2js**: For parsing XML responses from the arXiv API
 - **dotenv**: For loading environment variables from a .env file
 - **openai**: For AI-powered natural language processing
+- **@modelcontextprotocol/sdk**: For implementing the Model Context Protocol
+- **zod**: For schema validation in MCP tools
 
 ## Usage
 
@@ -63,6 +70,8 @@ The application supports natural language queries as well as specific command fo
 ## Project Structure
 
 - **index.js**: Main application file containing the core functionality
+- **tools.js**: Contains the core functions for searching and retrieving paper information
+- **mcp_tools.js**: Implements the Model Context Protocol server for AI tool integration
 - **papers/**: Directory where paper information is stored
   - **[topic]/**: Subdirectories for each search topic
     - **papers_info.json**: JSON file containing paper details for a specific topic
@@ -86,6 +95,37 @@ The application supports natural language queries as well as specific command fo
    - Searches through all stored JSON files
    - If the paper ID is found, it returns the detailed information
    - If not found, it returns an error message
+
+4. **MCP Integration**:
+   - The Model Context Protocol server runs separately from the main application
+   - Provides AI tools for paper searching and information retrieval
+   - Communicates with AI assistants through a standardized protocol
+   - Enables more powerful and flexible AI interactions
+
+## Model Context Protocol (MCP)
+
+The application implements the Model Context Protocol (MCP), which is an open protocol that standardizes how applications provide context and tools to AI models. Key aspects of the MCP implementation include:
+
+1. **MCP Server**: 
+   - Runs as a separate process (`node mcp_tools.js`)
+   - Registers tools that can be called by AI assistants
+   - Handles communication with AI models through a standardized protocol
+
+2. **MCP Tools**:
+   - **searchPapers**: Searches for papers on arXiv based on a topic
+   - **extractInfo**: Retrieves detailed information about a specific paper
+
+3. **Benefits of MCP**:
+   - Standardized way to extend AI capabilities
+   - Enables AI to interact with external systems and data
+   - Provides a consistent interface for tool usage
+   - Allows for more complex and powerful AI interactions
+
+4. **Implementation Details**:
+   - Uses the `@modelcontextprotocol/sdk` package
+   - Implements schema validation with Zod
+   - Returns structured data as JavaScript objects
+   - Communicates through standard I/O streams
 
 ## API Integration
 
@@ -118,6 +158,7 @@ Potential improvements for the application:
 5. Add citation generation in various formats
 6. Enhance AI capabilities with more specialized knowledge about academic papers
 7. Add user authentication and personalized paper recommendations
+8. Expand MCP tools to support more advanced paper analysis features
 
 ## License
 
@@ -125,4 +166,4 @@ ISC
 
 ## Author
 
-This project was created as a demonstration of integrating with the arXiv API using Node.js and enhancing it with AI capabilities.
+This project was created as a demonstration of integrating with the arXiv API using Node.js and enhancing it with AI capabilities through the Model Context Protocol.
