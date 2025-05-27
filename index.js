@@ -11,7 +11,11 @@ import OpenAI from 'openai';
 // Loading environment variables from .env file
 import dotenv from 'dotenv';
 // Import tools and functions from tools.js
-import { tools, executeTool, PAPER_DIR } from './tools.js';
+import { tools } from './tools.js';
+import { PAPER_DIR } from './constants/constants.js';
+
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 // Initialize environment variables
 dotenv.config();
@@ -21,53 +25,65 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// ---------------------- USER INTERACTION ----------------------
-
-/**
- * Create a readline interface for command-line interaction
- */
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
+// Initialize MCP Client
+const mcpClient = new Client({
+  name: 'MCP Client',
+  version: '1.0.0'
 });
 
-/**
- * Array to store conversation history for context
- * This allows the AI to remember previous interactions
- */
-const inputs = [];
+const transport = new StdioClientTransport({
+  command: "node",
+  args: ["mcp_tools.js"]
+});
 
-/**
- * Prompts the user for input and processes their query using OpenAI
- */
-function promptInput() {
-  rl.question("\nQuery: ", async (query) => {
-    // Exit the application if the user types "quit"
-    if (query.toLowerCase() === "quit") return rl.close();
-    
-    // Add user query to conversation history
-    inputs.push({ role: "user", content: query });
+//Initialize connection with MCP server
+await mcpClient.connect(transport);
 
-    // Send the conversation to OpenAI for processing
-    const response = await client.responses.create({
-      model: "gpt-4.1",
-      input: inputs,
-      tools,
-    }); 
+/** 
+ * Below is section of code we can add if we want to use tools
+ * from the MCP server instead of the local ones
+ *
+const tools_Obj = await mcpClient.listTools();
+const tools = tools_Obj.tools;
+tools.forEach(tool=>tool.type = 'mcp');
+console.log(tools);
+*/
 
+// ---------------------- USER INTERACTION ----------------------
+
+async function processQuery(query){
+  /**
+   * Array to store conversation history for context
+   * This allows the AI to remember previous interactions
+   */
+  const inputs = [];
+  let continueProcessing = true;
+
+  // Add user query to conversation history
+  inputs.push({ role: "user", content: query });
+
+  // Send the conversation to OpenAI for processing
+  let response = await client.responses.create({
+    model: "gpt-4.1",
+    input: inputs,
+    tools,
+  });
+
+  while(continueProcessing){
     // If the AI responds with text, display it
-    if(response.output_text){
+    if(response.output[0].type == "message"){
       console.log(response.output_text);
+      continueProcessing = false;
     }
     // If the AI wants to call a function
-    else if(response.output[0]){
+    else if(response.output[0].type == "function_call"){
       // Extract function call details
       const tool_call = response.output[0];
       const args = JSON.parse(tool_call.arguments);
       const toolName = tool_call.name;
       
       // Execute the requested function
-      const result = await executeTool(toolName, args);
+      const result = await mcpClient.callTool({ name: toolName, arguments: args });
 
       // Add the function call and its result to conversation history
       inputs.push(tool_call);
@@ -78,21 +94,47 @@ function promptInput() {
       });
 
       // Send the function result back to OpenAI for processing
-      const response2 = await client.responses.create({
+      response = await client.responses.create({
         model: "gpt-4.1",
         input: inputs,
         tools,
         store: true,
       });
-    
-      // Display the AI's response after processing the function result
-      console.log(response2.output_text)
     }
-    
-    // Continue prompting for input (recursive call)
-    promptInput();
-  });
+  }
 }
+
+const chatLoop = () => {
+  /**
+   * Create a readline interface for command-line interaction
+   */
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  /**
+   * Prompts the user for input and processes their query using OpenAI
+   */
+  function promptInput() {
+    rl.question("\nQuery: ", async (query) => {
+      // Exit the application if the user types "quit"
+      if (query.toLowerCase() === "quit") {
+        rl.close();
+        process.exit();
+      }
+      else{
+        await processQuery(query);
+
+        // Continue prompting for input (recursive call)
+        promptInput();
+      }
+    });
+  }
+  promptInput();
+}
+
+
 
 // Start the application
 console.log("Type your queries or 'quit' to exit.");
@@ -100,4 +142,4 @@ console.log("Example commands:");
 console.log("  - Search for 3 papers on \"quantum computing\"");
 console.log("  - Info on paper 2304.12345");
 console.log("  - Or try asking in natural language: \"Find me recent papers about machine learning\"");
-promptInput();
+chatLoop();

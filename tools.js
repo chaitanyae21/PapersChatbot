@@ -14,8 +14,7 @@ import { Parser } from 'xml2js';
 // For ES modules compatibility with __dirname
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-// Import PAPER_DIR from mcp_tools.js
-import { PAPER_DIR } from './mcp_tools.js';
+import { PAPER_DIR } from './constants/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -17,6 +17,7 @@ import { dirname } from 'path';
 // MCP Server for extending functionality
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { PAPER_DIR } from './constants/constants.js';
 import { z } from 'zod';
 
 // Initialize MCP server
@@ -27,9 +28,6 @@ const server = new McpServer({
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Directory where paper information will be stored
-export const PAPER_DIR = "papers";
 
 // ---------------------- MCP TOOL IMPLEMENTATIONS ----------------------
 
