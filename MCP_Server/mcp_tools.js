@@ -15,7 +15,7 @@ import { Parser } from 'xml2js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 // MCP Server for extending functionality
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { PAPER_DIR } from '../MCP_Chatbot/constants/constants.js';
 import { z } from 'zod';
@@ -121,6 +121,91 @@ server.tool("extractInfo", { paperId: z.string() }, ({ paperId }) => {
   // If paper not found, return an error message
   return { error: `There's no saved information related to paper ${paperId}.` };
 });
+
+
+// ---------------------- MCP Resource IMPLEMENTATIONS ----------------------
+
+// 2‑a  List available topics  ──────────────────────────────────────────────
+server.resource(
+  "topics",                          // internal name
+  "papers://folders",                // static URI (no params)
+  async () => {
+    const topics = fs.readdirSync(PAPER_DIR)
+      .filter(f => fs.existsSync(path.join(PAPER_DIR, f, "papers_info.json")));
+
+    const markdown = [
+      "# Available Topics\n",
+      ...topics.map(t => `- ${t}`),
+      "\nUse @<topic> to read the papers in that folder."
+    ].join("\n");
+
+    return { contents: [{ uri: "papers://folders", text: markdown }] };
+  }
+);
+
+// 2‑b  Detailed paper info for a topic  ────────────────────────────────────
+server.resource(
+  "topic-papers",                                  // internal name
+  new ResourceTemplate("papers://{topic}", { list: undefined }),
+  async (_uri, { topic }) => {
+    const file = path.join(PAPER_DIR, topic, "papers_info.json");
+    if (!fs.existsSync(file)) {
+      return { contents: [{ uri: _uri.href, text: `# No papers for ${topic}` }] };
+    }
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+
+    const md = [
+      `# Papers on ${topic}\n`,
+      `Total papers: ${Object.keys(data).length}\n\n`,
+      ...Object.entries(data).map(([id, p]: any) => (
+        `## ${p.title}\n` +
+        `- **ID**: ${id}\n` +
+        `- **Authors**: ${p.authors.join(', ')}\n` +
+        `- **Published**: ${p.published}\n` +
+        `- **PDF**: [link](${p.pdf_url})\n\n` +
+        `### Summary\n${p.summary.slice(0,500)}…\n\n---\n`)),
+    ].join("");
+
+    return { contents: [{ uri: _uri.href, text: md }] };
+  }
+);
+
+
+// ---------------------- MCP Prompt IMPLEMENTATIONS ----------------------
+
+server.prompt(
+  "generate-search-prompt",
+  { topic: z.string(), numPapers: z.number().optional().default(5) },
+  ({ topic, numPapers }) => ({
+    messages: [{
+      role: "user",
+      content: {
+        type: "text",
+        text: `Search for ${num_papers} academic papers about '${topic}' using the search_papers tool. Follow these instructions:
+    1. First, search for papers using search_papers(topic='${topic}', max_results=${num_papers})
+    2. For each paper found, extract and organize the following information:
+       - Paper title
+       - Authors
+       - Publication date
+       - Brief summary of the key findings
+       - Main contributions or innovations
+       - Methodologies used
+       - Relevance to the topic '${topic}'
+    
+    3. Provide a comprehensive summary that includes:
+       - Overview of the current state of research in '${topic}'
+       - Common themes and trends across the papers
+       - Key research gaps or areas for future investigation
+       - Most impactful or influential papers in this area
+    
+    4. Organize your findings in a clear, structured format with headings and bullet points for easy readability.
+    
+    Please present both detailed information about each paper and a high-level synthesis of the research landscape in ${topic}.`,
+      }
+    }]
+  })
+);
+
 
 // Initialize and connect the MCP server
 const transport = new StdioServerTransport();
