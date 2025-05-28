@@ -17,7 +17,7 @@ import { dirname } from 'path';
 // MCP Server for extending functionality
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { PAPER_DIR } from './constants/constants.js';
+import { PAPER_DIR } from '../MCP_Chatbot/constants/constants.js';
 import { z } from 'zod';
 
 // Initialize MCP server

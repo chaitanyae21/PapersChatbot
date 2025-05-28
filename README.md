@@ -29,11 +29,11 @@ This application provides a command-line interface to search for academic papers
    ```
 4. Run the application:
    ```
-   node index.js
+   node MCP_Chatbot/index.js
    ```
 5. To use MCP functionality, run the MCP server in a separate terminal:
    ```
-   node mcp_tools.js
+   node MCP_Server/mcp_tools.js
    ```
 
 ## Dependencies
@@ -69,12 +69,31 @@ The application supports natural language queries as well as specific command fo
 
 ## Project Structure
 
-- **index.js**: Main application file containing the core functionality
-- **tools.js**: Contains the core functions for searching and retrieving paper information
-- **mcp_tools.js**: Implements the Model Context Protocol server for AI tool integration
-- **papers/**: Directory where paper information is stored
-  - **[topic]/**: Subdirectories for each search topic
-    - **papers_info.json**: JSON file containing paper details for a specific topic
+The project has been reorganized into a more modular structure:
+
+```
+PapersChatbot/
+├── .env                      # Environment variables file (contains OpenAI API key)
+├── MCP_Chatbot/              # Main chatbot application
+│   ├── index.js              # Main application entry point
+│   ├── constants/            # Application constants and configurations
+│   ├── helpers/              # Helper functions for the chatbot
+│   └── dist/                 # Compiled/distribution files
+│
+├── MCP_Server/               # MCP server implementation
+│   ├── mcp_tools.js          # MCP server implementation
+│   ├── mcpservers.json       # MCP server configuration
+│   └── papers/               # Directory where paper information is stored
+│       └── [topic]/          # Subdirectories for each search topic
+│           └── papers_info.json  # JSON file containing paper details
+│
+└── node_modules/             # Node.js dependencies
+```
+
+### Key Components:
+
+- **MCP_Chatbot**: Contains the main chatbot application logic and user interface
+- **MCP_Server**: Contains the Model Context Protocol server implementation and paper storage
 - **.env**: Environment variables file (contains OpenAI API key)
 
 ## How It Works
