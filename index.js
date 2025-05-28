@@ -6,12 +6,14 @@
 // ---------------------- IMPORTING REQUIRED PACKAGES ----------------------
 // Handling command-line input/output
 import readline from 'readline';
+import path from 'path';
+import fs from 'fs';
 // OpenAI API client for AI-powered chat functionality
 import OpenAI from 'openai';
 // Loading environment variables from .env file
 import dotenv from 'dotenv';
 // Import tools and functions from tools.js
-import { tools } from './tools.js';
+// import { tools } from './tools.js';
 import { PAPER_DIR } from './constants/constants.js';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -19,6 +21,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 // Initialize environment variables
 dotenv.config();
+
+let tools;
 
 // Initialize OpenAI client with API key from environment variables
 const client = new OpenAI({
@@ -31,23 +35,51 @@ const mcpClient = new Client({
   version: '1.0.0'
 });
 
-const transport = new StdioClientTransport({
-  command: "node",
-  args: ["mcp_tools.js"]
-});
+async function connectToServers(){
+  const dirname = path.dirname(new URL(import.meta.url).pathname);
+  const mcpPath = path.join(dirname, "mcpservers.json");
+  
+  try {
+    const data = await fs.readFileSync(mcpPath, 'utf8');
+    const mcpServers = Object.values(JSON.parse(data).mcpServers);
+    for (const server of mcpServers) {
+      await connectToServer(server);
+    }  
+    tools = await listTools(); 
+  } catch (err) {
+    console.error('Error reading/parsing file:', err);
+  }  
+}
 
-//Initialize connection with MCP server
-await mcpClient.connect(transport);
+async function connectToServer(serverData){
+  const transport = new StdioClientTransport(serverData);
+  
+  //Initialize connection with MCP server
+  await mcpClient.connect(transport);
+}
 
 /** 
  * Below is section of code we can add if we want to use tools
- * from the MCP server instead of the local ones
- *
-const tools_Obj = await mcpClient.listTools();
-const tools = tools_Obj.tools;
-tools.forEach(tool=>tool.type = 'mcp');
-console.log(tools);
-*/
+ * from the MCP server instead of the local ones.
+ * Open AI only has documentation for remote MCPs, but it does not have documentation for local mcp connections. 
+ * So we are fetching MCP tools and converting them to regular function Calls
+ */
+
+async function listTools() {
+  const tools_Obj = await mcpClient.listTools();
+  const mcp_tools = tools_Obj.tools;
+  tools = mcp_tools.map(tool=>{
+    return {
+      type: "function",
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema
+    }
+  });
+  console.log(tools);
+  return tools;
+}
+
 
 // ---------------------- USER INTERACTION ----------------------
 
@@ -84,6 +116,7 @@ async function processQuery(query){
       
       // Execute the requested function
       const result = await mcpClient.callTool({ name: toolName, arguments: args });
+      console.log(result);
 
       // Add the function call and its result to conversation history
       inputs.push(tool_call);
@@ -137,9 +170,10 @@ const chatLoop = () => {
 
 
 // Start the application
+await connectToServers();
 console.log("Type your queries or 'quit' to exit.");
 console.log("Example commands:");
 console.log("  - Search for 3 papers on \"quantum computing\"");
 console.log("  - Info on paper 2304.12345");
 console.log("  - Or try asking in natural language: \"Find me recent papers about machine learning\"");
-chatLoop();
+await chatLoop();
