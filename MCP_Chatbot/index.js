@@ -1,21 +1,13 @@
-// ========================================================================
-// ARXIV PAPERS CHATBOT - A Node.js application to search and retrieve
-// academic papers from the arXiv repository using their public API
-// ========================================================================
+/**
+ * ArXiv Papers Chatbot - Search and retrieve academic papers from arXiv
+ */
 
-// ---------------------- IMPORTING REQUIRED PACKAGES ----------------------
-// Handling command-line input/output
 import readline from 'readline';
 import path from 'path';
 import fs from 'fs';
-// OpenAI API client for AI-powered chat functionality
 import OpenAI from 'openai';
-// Loading environment variables from .env file
 import dotenv from 'dotenv';
-// Import tools and functions from tools.js
-// import { tools } from './tools.js';
 import { PAPER_DIR } from './constants/constants.js';
-
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -53,18 +45,12 @@ async function connectToServers(){
 
 async function connectToServer(serverData){
   const transport = new StdioClientTransport(serverData);
-  
-  //Initialize connection with MCP server
   await mcpClient.connect(transport);
 }
 
-/** 
- * Below is section of code we can add if we want to use tools
- * from the MCP server instead of the local ones.
- * Open AI only has documentation for remote MCPs, but it does not have documentation for local mcp connections. 
- * So we are fetching MCP tools and converting them to regular function Calls
+/**
+ * Fetches MCP tools and converts them to OpenAI function call format
  */
-
 async function listTools() {
   const tools_Obj = await mcpClient.listTools();
   const mcp_tools = tools_Obj.tools;
@@ -81,13 +67,7 @@ async function listTools() {
 }
 
 
-// ---------------------- USER INTERACTION ----------------------
-
 async function processQuery(query){
-  /**
-   * Array to store conversation history for context
-   * This allows the AI to remember previous interactions
-   */
   const inputs = [];
   let continueProcessing = true;
 
@@ -138,17 +118,11 @@ async function processQuery(query){
 }
 
 const chatLoop = () => {
-  /**
-   * Create a readline interface for command-line interaction
-   */
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
-  /**
-   * Prompts the user for input and processes their query using OpenAI
-   */
   function promptInput() {
     rl.question("\nQuery: ", async (query) => {
       // Exit the application if the user types "quit"
@@ -158,16 +132,12 @@ const chatLoop = () => {
       }
       else{
         await processQuery(query);
-
-        // Continue prompting for input (recursive call)
         promptInput();
       }
     });
   }
   promptInput();
 }
-
-
 
 // Start the application
 await connectToServers();
