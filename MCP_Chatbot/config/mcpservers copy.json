@@ -10,7 +10,7 @@
         },
         "local": {
             "command": "node",
-            "args": ["mcp_tools.js"]
+            "args": ["server.js"]
         }
     }
 }

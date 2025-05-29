@@ -33,7 +33,7 @@ This application provides a command-line interface to search for academic papers
    ```
 5. To use MCP functionality, run the MCP server in a separate terminal:
    ```
-   node MCP_Server/mcp_tools.js
+   node MCP_Server/server.js
    ```
 
 ## Dependencies
@@ -78,11 +78,12 @@ PapersChatbot/
 │   ├── index.js              # Main application entry point
 │   ├── constants/            # Application constants and configurations
 │   ├── helpers/              # Helper functions for the chatbot
+│   ├── config/               # Configuration files including MCP server settings
+│   │   └── mcpservers.json   # MCP server configuration
 │   └── dist/                 # Compiled/distribution files
 │
 ├── MCP_Server/               # MCP server implementation
-│   ├── mcp_tools.js          # MCP server implementation
-│   ├── mcpservers.json       # MCP server configuration
+│   ├── server.js             # MCP server implementation (renamed from mcp_tools.js)
 │   └── papers/               # Directory where paper information is stored
 │       └── [topic]/          # Subdirectories for each search topic
 │           └── papers_info.json  # JSON file containing paper details
@@ -92,7 +93,7 @@ PapersChatbot/
 
 ### Key Components:
 
-- **MCP_Chatbot**: Contains the main chatbot application logic and user interface
+- **MCP_Chatbot**: Contains the main chatbot application logic, user interface, and configuration
 - **MCP_Server**: Contains the Model Context Protocol server implementation and paper storage
 - **.env**: Environment variables file (contains OpenAI API key)
 
@@ -126,7 +127,7 @@ PapersChatbot/
 The application implements the Model Context Protocol (MCP), which is an open protocol that standardizes how applications provide context and tools to AI models. Key aspects of the MCP implementation include:
 
 1. **MCP Server**: 
-   - Runs as a separate process (`node mcp_tools.js`)
+   - Runs as a separate process (`node MCP_Server/server.js`)
    - Registers tools that can be called by AI assistants
    - Handles communication with AI models through a standardized protocol
 
@@ -134,13 +135,20 @@ The application implements the Model Context Protocol (MCP), which is an open pr
    - **searchPapers**: Searches for papers on arXiv based on a topic
    - **extractInfo**: Retrieves detailed information about a specific paper
 
-3. **Benefits of MCP**:
+3. **MCP Resources**:
+   - **topics**: Lists all available paper topics
+   - **topic-papers**: Provides detailed information about papers for a specific topic
+
+4. **MCP Prompts**:
+   - **generate-search-prompt**: Creates a structured prompt for paper searching and analysis
+
+5. **Benefits of MCP**:
    - Standardized way to extend AI capabilities
    - Enables AI to interact with external systems and data
    - Provides a consistent interface for tool usage
    - Allows for more complex and powerful AI interactions
 
-4. **Implementation Details**:
+6. **Implementation Details**:
    - Uses the `@modelcontextprotocol/sdk` package
    - Implements schema validation with Zod
    - Returns structured data as JavaScript objects
