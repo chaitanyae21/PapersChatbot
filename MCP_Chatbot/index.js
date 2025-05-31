@@ -7,7 +7,6 @@ import path from 'path';
 import fs from 'fs';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { PAPER_DIR } from './constants/constants.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -15,6 +14,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 dotenv.config();
 
 let tools;
+let prompts;
+let resources;
 
 // Initialize OpenAI client with API key from environment variables
 const client = new OpenAI({
@@ -29,15 +30,17 @@ const mcpClient = new Client({
 
 async function connectToServers(){
   const dirname = path.dirname(new URL(import.meta.url).pathname);
-  const mcpPath = path.join(dirname, "mcpservers.json");
-  
+  const mcpPath = path.join(dirname, "config", "mcpservers.json");
+  console.log(mcpPath);
   try {
     const data = await fs.readFileSync(mcpPath, 'utf8');
     const mcpServers = Object.values(JSON.parse(data).mcpServers);
     for (const server of mcpServers) {
       await connectToServer(server);
     }  
-    tools = await listTools(); 
+    tools = await listTools();
+    // prompts = await fetchPrompts(); //commenting these since the current connected mcp server from config file does not provide any resources or prompts
+    // resources = await fetchResources();
   } catch (err) {
     console.error('Error reading/parsing file:', err);
   }  
@@ -62,8 +65,76 @@ async function listTools() {
       parameters: tool.inputSchema
     }
   });
-  console.log(tools);
   return tools;
+}
+
+/**
+ * Fetches MCP prompts
+ */
+async function fetchPrompts() {
+  const promptsResponse = await mcpClient.listPrompts();
+  console.log(promptsResponse);
+  prompts = promptsResponse.prompts.map(prompt=>{
+    return {
+      name: prompt.name,
+      description: prompt.description,
+      arguments: prompt.arguments
+    }
+  });
+  console.log(prompts);
+  return prompts;
+}
+
+function listPrompts(){
+  console.log("Available prompts:");
+  if(!prompts) {
+    console.log("No prompts found.");
+    return;
+  }
+  prompts.forEach(prompt=>{
+    console.log(`  ${prompt.name}: ${prompt.description}`);
+  });
+}
+
+function getPrompt(promptName, args){
+  const prompt = prompts.find(prompt => prompt.name == promptName);
+  if(prompt == null){
+    console.log(`Prompt ${promptName} not found.`);
+    return null;
+  }
+  return {
+    name: prompt.name,
+    description: prompt.description,
+    arguments: args
+  }
+}
+
+function executePrompt(promptName, args){
+  const query = getPrompt(promptName,args);
+  if(query == null) return;
+  processQuery(query);
+}
+
+/**
+ * Fetches MCP resources
+ */
+async function fetchResources() {
+  const resourcesResponse = await mcpClient.listResources();
+  console.log(resourcesResponse);
+  resources = resourcesResponse.resources.map(resource=>{
+    return {
+      resource_uri: resource.resource_uri.toString()
+    }
+  });
+  console.log(resources);
+  return resources;
+}
+
+function listResources(){
+  console.log("Available resources:");
+  resources.forEach(resource=>{
+    console.log(`  ${resource.resource_uri}`);
+  });
 }
 
 
@@ -129,6 +200,14 @@ const chatLoop = () => {
       if (query.toLowerCase() === "quit") {
         rl.close();
         process.exit();
+      }
+      else if(query.toLowerCase().startsWith("/prompts")){
+        listPrompts()
+        promptInput();
+      }
+      else if(query.toLowerCase().startsWith("/resources")){
+        listResources()
+        promptInput();
       }
       else{
         await processQuery(query);

@@ -8,9 +8,9 @@
             "command": "uvx",
             "args": "mcp-server-fetch"
         },
-        "local": {
+        "paperResearch": {
             "command": "node",
-            "args": ["server.js"]
+            "args": ["../MCP_Server/server.js"]
         }
     }
 }

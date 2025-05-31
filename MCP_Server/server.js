@@ -10,9 +10,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { PAPER_DIR } from '../MCP_Chatbot/constants/constants.js';
 import { z } from 'zod';
-
+import { PAPER_DIR } from '../constants/constants.js';
 // Initialize MCP server
 const server = new McpServer({
   name: "Paper Research MCP",
@@ -122,7 +121,7 @@ server.resource(
     const md = [
       `# Papers on ${topic}\n`,
       `Total papers: ${Object.keys(data).length}\n\n`,
-      ...Object.entries(data).map(([id, p]: any) => (
+      ...Object.entries(data).map(([id, p]) => (
         `## ${p.title}\n` +
         `- **ID**: ${id}\n` +
         `- **Authors**: ${p.authors.join(', ')}\n` +
@@ -174,4 +173,5 @@ server.prompt(
 
 // Initialize and connect the MCP server
 const transport = new StdioServerTransport();
-await server.connect(transport);
+const connect = await server.connect(transport);
+console.log('connected');
