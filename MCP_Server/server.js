@@ -63,7 +63,14 @@ server.tool("searchPapers", { topic: z.string(), maxResults: z.number() }, async
   const filePath = path.join(topicDir, "papers_info.json");
   fs.writeFileSync(filePath, JSON.stringify(papersInfo, null, 2));
 
-  return { paperIds: paperIds };
+  return {
+    content: [
+      {
+        type: "text",
+        text: paperIds.toString()
+      },
+    ],
+  };
 });
 
 /**
@@ -77,11 +84,25 @@ server.tool("extractInfo", { paperId: z.string() }, ({ paperId }) => {
     if (fs.existsSync(filePath)) {
       const data = JSON.parse(fs.readFileSync(filePath));
       if (data[paperId]) {
-        return { paper: data[paperId] };
+        return {
+          content: [
+            {
+              type: "text",
+              text: data[paperId],
+            },
+          ],
+        };
       }
     }
   }
-  return { error: `There's no saved information related to paper ${paperId}.` };
+  return {
+    content: [
+      {
+        type: "text",
+        text: `There's no saved information related to paper ${paperId}.`,
+      },
+    ],
+  };
 });
 
 
