@@ -161,7 +161,8 @@ server.resource(
  */
 server.prompt(
   "generate-search-prompt",
-  { topic: z.string(), numPapers: z.number().optional().default(5) },
+  "generates predefined search prompts",
+  { topic: z.string(), numPapers: z.string().optional().default('5') },
   ({ topic, numPapers }) => ({
     messages: [{
       role: "user",
@@ -195,4 +196,3 @@ server.prompt(
 // Initialize and connect the MCP server
 const transport = new StdioServerTransport();
 const connect = await server.connect(transport);
-console.log('connected');

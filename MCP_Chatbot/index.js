@@ -39,8 +39,8 @@ async function connectToServers(){
       await connectToServer(server);
     }  
     tools = await listTools();
-    // prompts = await fetchPrompts(); //commenting these since the current connected mcp server from config file does not provide any resources or prompts
-    // resources = await fetchResources();
+    prompts = await fetchPrompts();
+    resources = await fetchResources();
   } catch (err) {
     console.error('Error reading/parsing file:', err);
   }  
@@ -57,7 +57,7 @@ async function connectToServer(serverData){
 async function listTools() {
   const tools_Obj = await mcpClient.listTools();
   const mcp_tools = tools_Obj.tools;
-  tools = mcp_tools.map(tool=>{
+  const tools_info = mcp_tools.map(tool=>{
     return {
       type: "function",
       name: tool.name,
@@ -65,7 +65,7 @@ async function listTools() {
       parameters: tool.inputSchema
     }
   });
-  return tools;
+  return tools_info;
 }
 
 /**
@@ -73,7 +73,6 @@ async function listTools() {
  */
 async function fetchPrompts() {
   const promptsResponse = await mcpClient.listPrompts();
-  console.log(promptsResponse);
   prompts = promptsResponse.prompts.map(prompt=>{
     return {
       name: prompt.name,
@@ -81,7 +80,6 @@ async function fetchPrompts() {
       arguments: prompt.arguments
     }
   });
-  console.log(prompts);
   return prompts;
 }
 
@@ -96,21 +94,29 @@ function listPrompts(){
   });
 }
 
-function getPrompt(promptName, args){
+async function getPrompt(promptName, args){
   const prompt = prompts.find(prompt => prompt.name == promptName);
   if(prompt == null){
     console.log(`Prompt ${promptName} not found.`);
     return null;
   }
-  return {
+
+  const argsObject = {
+    topic: args[0],
+    numPapers: args[1]
+  };
+
+  const query = await mcpClient.getPrompt({
     name: prompt.name,
-    description: prompt.description,
-    arguments: args
-  }
+    arguments: argsObject
+  });
+
+  return query;
 }
 
-function executePrompt(promptName, args){
-  const query = getPrompt(promptName,args);
+async function executePrompt(promptName, args){
+  const prompt = await getPrompt(promptName,args);
+  const query = prompt.messages[0].content.text;
   if(query == null) return;
   processQuery(query);
 }
@@ -123,10 +129,9 @@ async function fetchResources() {
   console.log(resourcesResponse);
   resources = resourcesResponse.resources.map(resource=>{
     return {
-      resource_uri: resource.resource_uri.toString()
+      resource_uri: resource.uri.toString()
     }
   });
-  console.log(resources);
   return resources;
 }
 
@@ -135,6 +140,16 @@ function listResources(){
   resources.forEach(resource=>{
     console.log(`  ${resource.resource_uri}`);
   });
+}
+
+async function readResource(resourceUri){
+  const uri = resources.find(resource => resource.resource_uri == resourceUri);
+  if(resource == null){
+    console.log(`Resource ${resourceUri} not found.`);
+    return null;
+  }
+  const resource = await mcpClient.readResource({uri});
+  return resource;
 }
 
 
@@ -164,11 +179,15 @@ async function processQuery(query){
       const tool_call = response.output[0];
       const args = JSON.parse(tool_call.arguments);
       const toolName = tool_call.name;
+
+      console.log(` Need to access the following tool`);
+      console.log(tool_call);
+      console.log('--------------');
       
       // Execute the requested function
       const result = await mcpClient.callTool({ name: toolName, arguments: args });
       console.log(result);
-
+      console.log('--------------');
       // Add the function call and its result to conversation history
       inputs.push(tool_call);
       inputs.push({ 
@@ -203,6 +222,13 @@ const chatLoop = () => {
       }
       else if(query.toLowerCase().startsWith("/prompts")){
         listPrompts()
+        promptInput();
+      }
+      else if(query.toLowerCase().startsWith("/prompt")){
+        const parts = query.split(" ");
+        const promptName = parts[1];
+        const args = parts.slice(2);
+        executePrompt(promptName, args);
         promptInput();
       }
       else if(query.toLowerCase().startsWith("/resources")){

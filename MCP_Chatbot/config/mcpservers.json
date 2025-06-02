@@ -3,6 +3,10 @@
         "fileSystem": {
             "command": "npx",
             "args": [ "-y", "@modelcontextprotocol/server-filesystem", "."]
+        },
+        "paperResearch": {
+            "command": "node",
+            "args": ["/Users/x326915/Documents/AI/MCP/PapersChatbot/MCP_Server/server.js"]
         }
     }
 }
